@@ -1,0 +1,66 @@
+# syntax=docker/dockerfile:1
+
+ARG ALPINE_VERSION=3.24
+ARG BIRD_VERSION=3.3.1
+
+
+# ------------------------------------------------------------
+# Builder
+# ------------------------------------------------------------
+FROM alpine:${ALPINE_VERSION} AS builder
+
+ARG BIRD_VERSION
+
+RUN apk add --no-cache \
+        bison \
+        build-base \
+        ca-certificates \
+        curl \
+        flex \
+        linux-headers \
+        m4 \
+        ncurses-dev \
+        readline-dev
+
+WORKDIR /usr/src
+
+RUN curl -fsSL \
+        "https://bird.nic.cz/download/bird-${BIRD_VERSION}.tar.gz" \
+        -o bird.tar.gz \
+    && mkdir bird \
+    && tar -xzf bird.tar.gz \
+        --strip-components=1 \
+        -C bird \
+    && rm bird.tar.gz
+
+WORKDIR /usr/src/bird
+
+RUN ./configure \
+        --disable-lto \
+        --prefix=/usr \
+        --sysconfdir=/etc/bird \
+        --localstatedir=/var \
+        --runstatedir=/run/bird \
+    && make -j"$(getconf _NPROCESSORS_ONLN)" \
+    && make DESTDIR=/opt/bird-root install
+
+
+# ------------------------------------------------------------
+# Runtime
+# ------------------------------------------------------------
+FROM alpine:${ALPINE_VERSION} AS runtime
+
+RUN apk add --no-cache \
+        ncurses-libs \
+        readline \
+    && mkdir -p \
+        /etc/bird \
+        /run/bird
+
+COPY --from=builder /opt/bird-root/ /
+
+EXPOSE 179/tcp
+
+STOPSIGNAL SIGTERM
+
+CMD ["/usr/sbin/bird", "-c", "/etc/bird/bird.conf", "-d"]

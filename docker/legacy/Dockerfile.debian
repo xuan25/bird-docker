@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1
+
+ARG DEBIAN_TAG=13-slim
+
+# ------------------------------------------------------------
+# Builder
+# ------------------------------------------------------------
+FROM debian:${DEBIAN_TAG} AS builder
+
+ARG BIRD_VERSION=3.3.1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        bison \
+        build-essential \
+        ca-certificates \
+        curl \
+        flex \
+        libncurses-dev \
+        libreadline-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src
+
+RUN curl -fsSL \
+        "https://bird.nic.cz/download/bird-${BIRD_VERSION}.tar.gz" \
+        -o bird.tar.gz \
+    && mkdir bird \
+    && tar -xzf bird.tar.gz \
+        --strip-components=1 \
+        -C bird \
+    && rm bird.tar.gz
+
+WORKDIR /usr/src/bird
+
+RUN ./configure \
+        --prefix=/usr \
+        --sysconfdir=/etc/bird \
+        --localstatedir=/var \
+        --runstatedir=/run/bird \
+    && make -j"$(nproc)" \
+    && make DESTDIR=/opt/bird-root install
+
+
+# ------------------------------------------------------------
+# Runtime
+# ------------------------------------------------------------
+FROM debian:${DEBIAN_TAG} AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libreadline8t64 \
+        libtinfo6 \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p \
+        /etc/bird \
+        /run/bird
+
+COPY --from=builder /opt/bird-root/ /
+
+EXPOSE 179/tcp
+
+STOPSIGNAL SIGTERM
+
+CMD ["/usr/sbin/bird", "-c", "/etc/bird/bird.conf", "-d"]

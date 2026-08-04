@@ -1,0 +1,16 @@
+services:
+  bird:
+    build:
+      context: ./docker
+      target: runtime
+      args:
+        ALPINE_VERSION: "3.24"
+        BIRD_VERSION: "3.3.1"
+    volumes:
+      - ./config:/etc/bird:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/sbin/birdc", "-s", "/run/bird/bird.ctl", "show", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
