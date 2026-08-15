@@ -1,11 +1,11 @@
 services:
   bird:
+    # image: registry.internal/bird:latest
     build:
       context: ./docker
       target: runtime
-      args:
-        ALPINE_VERSION: "3.24"
-        BIRD_VERSION: "3.3.1"
+      # args:
+      #   BIRD_VERSION: "<BIRD_VERSION>"
     volumes:
       - ./config:/etc/bird:ro
     restart: unless-stopped
