@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG DEBIAN_TAG=13-slim
-ARG BIRD_VERSION=3.3.1
+ARG BIRD_VERSION=3.3.2
 
 # ------------------------------------------------------------
 # Builder
